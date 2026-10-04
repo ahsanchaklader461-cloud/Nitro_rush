@@ -45,7 +45,7 @@ button{font:inherit;font-weight:800;color:#fff;border:0;cursor:pointer;text-shad
 <body>
 <div id="app">
   <div id="vig"></div>
-  <div style="position:absolute;left:6px;bottom:2px;font-size:10px;opacity:.5;pointer-events:none;z-index:5">v6</div>
+  <div style="position:absolute;left:6px;bottom:2px;font-size:10px;opacity:.5;pointer-events:none;z-index:5">v7</div>
   <div id="hud" class="ov" hidden>
     <div class="top"><span class="chip" id="sc">0 m</span><span style="flex:1"></span><span class="chip" id="sp">0 km/h</span></div>
     <button class="bl" id="exit">&lsaquo; GARAGE</button>
@@ -62,7 +62,7 @@ button{font:inherit;font-weight:800;color:#fff;border:0;cursor:pointer;text-shad
       <button class="or" id="play">PLAY</button>
     </div>
   </div>
-  <div id="msg" class="ov" hidden></div>
+  <div id="msg" class="ov"><div class="box"><h1>LOADING&hellip;</h1><p>Downloading the 3D engine</p></div></div>
 </div>
 <script>
 window.addEventListener('error', e => {
@@ -72,6 +72,7 @@ window.addEventListener('error', e => {
 });
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>window.THREE || document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"><\/script>')</script>
 <script>
 (() => {
 const $ = id => document.getElementById(id);
@@ -269,4 +270,300 @@ for (let i = 0; i < 40; i++) { const t = mkTree(); placeTree(t, 20 - i * 6); H.a
 const M = new THREE.Group(), MT = new THREE.Group(); scene.add(M); M.add(MT);
 const blocks = [], gems = [];
 // ---- city: ground tile (roads + lots), window texture, building blocks ----
-const cityT = canvasTex(256
+const cityT = canvasTex(256, 256, x => {
+  x.fillStyle = '#3a3f48'; x.fillRect(0, 0, 256, 256);
+  x.fillStyle = '#9a9ca1'; x.fillRect(38, 38, 180, 180);
+  x.strokeStyle = '#6b6d72'; x.lineWidth = 3; x.strokeRect(38, 38, 180, 180);
+  x.fillStyle = '#e8c53a';
+  for (let t = 8; t < 256; t += 40) { x.fillRect(0, t, 3, 20); x.fillRect(253, t, 3, 20); x.fillRect(t, 0, 20, 3); x.fillRect(t, 253, 20, 3); }
+});
+cityT.wrapS = cityT.wrapT = THREE.RepeatWrapping; cityT.repeat.set(10, 10);
+const lit = Array.from({length: 16}, () => Math.random() < 0.4);
+const winT = canvasTex(128, 128, x => {
+  x.fillStyle = '#2a3745'; x.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { x.fillStyle = lit[i * 4 + j] ? '#ffd98a' : '#101a26'; x.fillRect(6 + i * 32, 5 + j * 32, 20, 22); }
+});
+const winE = canvasTex(128, 128, x => {
+  x.fillStyle = '#000'; x.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) if (lit[i * 4 + j]) { x.fillStyle = '#ffc860'; x.fillRect(6 + i * 32, 5 + j * 32, 20, 22); }
+});
+winT.wrapS = winT.wrapT = winE.wrapS = winE.wrapT = THREE.RepeatWrapping;
+const bMats = [0xffffff, 0xcfd8e8, 0xe8d8c8, 0xbfc8d0].map(c => new THREE.MeshLambertMaterial({map: winT, color: c, emissive: 0xffffff, emissiveMap: winE, emissiveIntensity: 0.45}));
+function bGeo(w, h, d) {
+  const g = new THREE.BoxGeometry(w, h, d), uv = g.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * Math.max(w, d) / 10, uv.getY(i) * h / 10);
+  return g;
+}
+for (let i = -3; i < 3; i++) for (let j = -3; j < 3; j++) {
+  const k = new THREE.Group(); k.position.set(20 + i * 40, 0, 20 + j * 40);
+  for (const sx of [-7, 7]) {
+    const w = 13, d = rnd(16, 24), h = rnd(14, 80), m = new THREE.Mesh(bGeo(w, h, d), bMats[Math.floor(Math.random() * 4)]);
+    m.position.set(sx, h / 2, 0); m.hw = w / 2; m.hd = d / 2; m.castShadow = true; k.add(m);
+  }
+  M.add(k); blocks.push(k);
+}
+function roadPos(p) {
+  const a = Math.round((cx + rnd(-110, 110)) / 40) * 40, b = cz + rnd(-110, 110);
+  if (Math.random() < 0.5) { p.x = a; p.z = b; } else { p.x = cx + rnd(-110, 110); p.z = Math.round((cz + rnd(-110, 110)) / 40) * 40; }
+}
+const gemG = new THREE.OctahedronGeometry(0.6), gemM = new THREE.MeshStandardMaterial({color: 0x2cff8a, emissive: 0x16a050, metalness: 0.3, roughness: 0.2});
+for (let i = 0; i < 25; i++) { const g = new THREE.Mesh(gemG, gemM); M.add(g); gems.push(g); }
+const mtG = new THREE.ConeGeometry(30, 60, 6), mtM = L(0x5d7a63);
+for (let i = 0; i < 10; i++) { const m = new THREE.Mesh(mtG, mtM); m.position.set(rnd(-150, 150), 20, -rnd(165, 185)); m.scale.set(rnd(0.8, 1.8), rnd(0.6, 1.4), 1); H.add(m); }
+
+// ---- pedestrians (highway verge + city streets) and city traffic ----
+const SHIRT = [0xe63946, 0x2a9d8f, 0xf4a261, 0x457b9d, 0x9b5de5, 0xffffff, 0xe9c46a, 0x6c757d].map(L);
+const PANTS = [0x2b3445, 0x3d3a34, 0x1f2430].map(L), SKIN = [0xf1c9a0, 0xc68e63, 0x8d5a3b].map(L);
+const pbG = new THREE.BoxGeometry(0.46, 0.66, 0.28), phG = new THREE.SphereGeometry(0.17, 10, 8);
+const plegG = new THREE.BoxGeometry(0.17, 0.72, 0.19).translate(0, -0.36, 0), parmG = new THREE.BoxGeometry(0.12, 0.58, 0.14).translate(0, -0.29, 0);
+function mkPed() {
+  const g = new THREE.Group(), pk = a => a[Math.floor(Math.random() * a.length)], sh = pk(SHIRT), pn = pk(PANTS), sk = pk(SKIN);
+  const part = (geo, mat, x, y) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, 0); g.add(m); return m; };
+  part(pbG, sh, 0, 1.08).castShadow = true; part(phG, sk, 0, 1.58);
+  g.lg = [part(plegG, pn, -0.11, 0.75), part(plegG, pn, 0.11, 0.75)];
+  g.ar = [part(parmG, sh, -0.3, 1.38), part(parmG, sh, 0.3, 1.38)];
+  g.ph = rnd(0, 6.28); return g;
+}
+function walkAnim(g) {
+  const s = Math.sin(tt * 7 + g.ph) * 0.7;
+  g.lg[0].rotation.x = s; g.lg[1].rotation.x = -s; g.ar[0].rotation.x = -s; g.ar[1].rotation.x = s;
+}
+const hPeds = [], cPeds = [], aiCars = [];
+for (let i = 0; i < 8; i++) { const m = mkPed(); m.position.set(i % 2 ? 10 : -10, 0, 15 - i * 28); m.vz = rnd(-1.6, 1.6); m.rotation.y = m.vz > 0 ? Math.PI : 0; H.add(m); hPeds.push(m); }
+for (let i = 0; i < 20; i++) { const p = {m: mkPed(), hit: 0}; M.add(p.m); cPeds.push(p); }
+for (let i = 0; i < 8; i++) { const m = makeCar(Math.random() < 0.3 ? 1 : 0, COL[Math.floor(Math.random() * COL.length)]); M.add(m); aiCars.push({m}); }
+function hwyPeds(dt, sv) {
+  for (const m of hPeds) {
+    m.position.z += sv + m.vz * dt; walkAnim(m);
+    if (m.position.z > 20) { m.position.set((Math.random() < 0.5 ? -1 : 1) * rnd(8, 12), 0, -rnd(150, 240)); m.vz = rnd(-1.6, 1.6); m.rotation.y = m.vz > 0 ? Math.PI : 0; }
+  }
+}
+function placePed(p) {
+  const v = Math.random() < 0.5, cr = Math.random() < 0.35, sp = rnd(1.1, 1.7), sg = Math.random() < 0.5 ? -1 : 1;
+  p.v = v; p.cr = cr; p.hit = 0; p.r = 40 * Math.round((v ? cx : cz) / 40 + rnd(-2.5, 2.5)); p.a = (v ? cz : cx) + rnd(-110, 110);
+  p.l = cr ? rnd(-6, 6) : (Math.random() < 0.5 ? -6.2 : 6.2); p.va = cr ? 0 : sp * sg; p.vl = cr ? sp * sg : 0;
+  p.m.rotation.z = 0; p.m.position.y = 0;
+}
+function placeAI(c) {
+  const v = Math.random() < 0.5, dir = Math.random() < 0.5 ? -1 : 1;
+  c.v = v; c.dir = dir; c.sp = rnd(9, 15);
+  c.f = 40 * Math.round((v ? cx : cz) / 40 + rnd(-2.5, 2.5)) + (v ? -dir : dir) * 3; c.a = (v ? cz : cx) + rnd(-110, 110);
+  c.m.rotation.y = v ? (dir < 0 ? 0 : Math.PI) : (dir < 0 ? Math.PI / 2 : -Math.PI / 2);
+}
+function cityActors(dt) {
+  for (const p of cPeds) {
+    const m = p.m;
+    if (p.hit > 0) {
+      p.hit -= dt; m.position.y = Math.sin(Math.max(0, p.hit) * 3.9) * 1.5; m.rotation.z += dt * 9; m.position.x += p.px * dt; m.position.z += p.pz * dt;
+      if (p.hit <= 0) placePed(p);
+      continue;
+    }
+    p.r = wr(p.r, p.v ? cx : cz); p.a = wr(p.a, p.v ? cz : cx);
+    p.a += p.va * dt; p.l += p.vl * dt;
+    if (p.cr && Math.abs(p.l) > 6) { p.vl = -p.vl; p.l = clamp(p.l, -6, 6); }
+    const x = p.v ? p.r + p.l : p.a, z = p.v ? p.a : p.r + p.l, dx = p.v ? p.vl : p.va, dz = p.v ? p.va : p.vl;
+    m.position.set(x, 0, z); m.rotation.y = Math.atan2(-dx, -dz); walkAnim(m);
+    const ex = x - cx, ez = z - cz;
+    if (ex * ex + ez * ez < 2.8 && speed > 6) { p.hit = 0.8; p.px = -Math.sin(ang) * speed * 0.5; p.pz = -Math.cos(ang) * speed * 0.5; speed *= 0.8; shake = Math.max(shake, 0.2); }
+  }
+  for (const c of aiCars) {
+    c.f = wr(c.f, c.v ? cx : cz); c.a = wr(c.a, c.v ? cz : cx); c.a += c.dir * c.sp * dt;
+    const x = c.v ? c.f : c.a, z = c.v ? c.a : c.f; c.m.position.set(x, 0, z);
+    const dx = cx - x, dz = cz - z, q = dx * dx + dz * dz;
+    if (q < 9) { const l = Math.sqrt(q) || 1; cx = x + dx / l * 3; cz = z + dz / l * 3; speed *= Math.max(0, 1 - 8 * dt); shake = Math.max(shake, 0.15); }
+  }
+}
+
+// ---- speed streaks + vignette ----
+const SKn = 140, skA = new Float32Array(SKn * 6), skG = new THREE.BufferGeometry(), vig = $('vig');
+for (let i = 0; i < SKn; i++) { const x = rnd(-14, 14), y = rnd(0.3, 9), z = rnd(-70, 10); skA.set([x, y, z, x, y, z - 1], i * 6); }
+skG.setAttribute('position', new THREE.BufferAttribute(skA, 3));
+const skM = new THREE.LineBasicMaterial({color: 0xffffff, transparent: true, opacity: 0}), SK = new THREE.LineSegments(skG, skM);
+SK.frustumCulled = false; scene.add(SK);
+function streaks(dt) {
+  skM.opacity = state === 'garage' ? 0 : clamp((speed - 40) / 40, 0, 0.55);
+  vig.style.opacity = state === 'garage' ? 0.25 : 0.3 + clamp((speed - 50) / 60, 0, 0.5);
+  const len = speed * 0.04 + 0.5;
+  for (let i = 0; i < SKn; i++) { let z = skA[i * 6 + 2] + speed * dt * 1.2; if (z > 10) z -= 80; skA[i * 6 + 2] = z; skA[i * 6 + 5] = z - len; }
+  skG.attributes.position.needsUpdate = true;
+  SK.position.set(cam.position.x, 0, cam.position.z); SK.rotation.y = mode === 'roam' ? ca : 0;
+}
+const wr = (v, c) => ((v - c + 120) % 240 + 240) % 240 - 120 + c;
+function scatter() {
+  for (const g of gems) roadPos(g.position);
+  for (const p of cPeds) placePed(p);
+  for (const c of aiCars) placeAI(c);
+}
+
+// ---- state ----
+const LANES = [-4, 0, 4], traffic = [];
+let state = 'garage', mode = 'hwy', speed = 0, bs = 30, dist = 0, scr = 0, px = 0, vx = 0, shake = 0, spawnT = 0, over = 0;
+let nitro = 100, boost = false, cx = 0, cz = 0, ang = 0, ca = 0, tt = 0, earned = 0, fv = 60;
+
+function ui() {
+  const d = CARS[S.car], own = S.own.includes(S.car);
+  $('gm').textContent = '\u25C6 ' + S.d; $('st').textContent = '\u2605 ' + S.s; $('bs').textContent = 'BEST ' + S.best + ' m';
+  $('cn').textContent = d.n;
+  $('bars').innerHTML = [['SPEED', d.sp], ['BRAKE', d.br], ['STEERING', d.st], ['NITRO', d.ni]].map(a => '<div class="r"><span>' + a[0] + '</span><b><i style="width:' + a[1] + '%"></i></b></div>').join('');
+  $('sw').innerHTML = PAINT.map((c, i) => '<button data-i="' + i + '"' + (S.col[S.car] === i ? ' class="on"' : '') + ' style="background:#' + c.toString(16).padStart(6, '0') + '"></button>').join('');
+  const pb = $('play'); pb.textContent = own ? 'PLAY' : 'BUY ' + d.p + ' \u25C6'; pb.className = own ? 'or' : 'bl';
+  $('m1').className = S.mode === 'hwy' ? 'on' : ''; $('m2').className = S.mode === 'roam' ? 'on' : '';
+}
+function toGarage() {
+  state = 'garage'; hud.hidden = true; msg.hidden = true; gar.hidden = false;
+  G.visible = true; H.visible = M.visible = ground.visible = false;
+  scene.background = DARK; scene.fog.color.copy(DARK);
+  hemi.intensity = 0.25; sun.intensity = 0;
+  car.refl.visible = true; car.fl.forEach(f => f.visible = false); car.position.set(0, 0, 0); car.rotation.set(0, 0.6, 0);
+  speed = 0; for (const t of traffic) scene.remove(t.mesh); traffic.length = 0; ui();
+}
+function start() {
+  mode = S.mode; const hw = mode === 'hwy';
+  state = 'play'; gar.hidden = true; msg.hidden = true; hud.hidden = false;
+  G.visible = false; H.visible = hw; M.visible = !hw; ground.visible = true;
+  ground.material.map = hw ? gT : cityT; ground.material.needsUpdate = true;
+  scene.background = skyT; scene.fog.color.setHex(SKY); scene.fog.near = hw ? 50 : 80; scene.fog.far = hw ? 190 : 220;
+  hemi.intensity = 0.85; sun.intensity = 1.05; car.refl.visible = false;
+  car.position.set(0, 0, 0); car.rotation.set(0, 0, 0);
+  for (const t of traffic) scene.remove(t.mesh); traffic.length = 0;
+  speed = hw ? 30 : 20; bs = hw ? 30 : 38; dist = 0; scr = 0; px = 0; vx = 0; spawnT = 1; shake = 0; nitro = 100; boost = false;
+  cx = cz = ang = ca = 0; earned = 0; if (!hw) scatter();
+  $('exit').innerHTML = '&lsaquo; GARAGE';
+}
+function crash() {
+  state = 'over'; shake = 0.5; boost = false; const m = Math.floor(dist);
+  earned = Math.floor(m / 25); S.d += earned;
+  const rec = m > S.best; if (rec) { S.best = m; S.s++; } save();
+  msg.hidden = false;
+  msg.innerHTML = '<div class="box"><h1>CRASH!</h1><p>' + m + ' m &nbsp; +' + earned + ' \u25C6</p><p>' + (rec ? 'New record! +1 \u2605' : 'Best ' + S.best + ' m') + '</p><button class="or" id="again">RACE AGAIN</button><button class="bl" id="gar2">GARAGE</button></div>';
+}
+function spawn() {
+  const lane = Math.floor(Math.random() * 3);
+  if (traffic.some(t => t.lane === lane && t.mesh.position.z < -110)) return;
+  const m = makeCar(Math.random() < 0.3 ? 1 : 0, COL[Math.floor(Math.random() * COL.length)]);
+  m.position.set(LANES[lane], 0, -170); scene.add(m); traffic.push({mesh: m, lane, sw: Math.random() < 0.3 ? rnd(2, 5) : 0});
+}
+
+// ---- input / ui events ----
+const holds = new Map(), keys = new Set();
+app.addEventListener('pointerdown', e => {
+  if (state !== 'play' || e.target.closest('button')) return;
+  holds.set(e.pointerId, e.clientX < innerWidth / 2 ? -1 : 1); app.setPointerCapture(e.pointerId);
+});
+app.addEventListener('pointermove', e => { if (holds.has(e.pointerId)) holds.set(e.pointerId, e.clientX < innerWidth / 2 ? -1 : 1); });
+for (const t of ['pointerup', 'pointercancel']) app.addEventListener(t, e => holds.delete(e.pointerId));
+const nit = $('nit');
+nit.addEventListener('pointerdown', () => boost = true);
+for (const t of ['pointerup', 'pointercancel', 'pointerleave']) nit.addEventListener(t, () => boost = false);
+addEventListener('keydown', e => { const k = e.key.toLowerCase(); if (k.startsWith('arrow') || k === ' ') e.preventDefault(); if (k === 'shift' || k === 'n' || k === ' ') boost = true; keys.add(k); });
+addEventListener('keyup', e => { const k = e.key.toLowerCase(); if (k === 'shift' || k === 'n' || k === ' ') boost = false; keys.delete(k); });
+const go = n => { S.car = (S.car + n + CARS.length) % CARS.length; save(); setCar(); ui(); };
+$('pv').onclick = () => go(-1); $('nx').onclick = () => go(1);
+$('sw').onclick = e => { const i = e.target.dataset.i; if (i != null) { S.col[S.car] = +i; save(); setCar(); ui(); } };
+$('m1').onclick = () => { S.mode = 'hwy'; save(); ui(); }; $('m2').onclick = () => { S.mode = 'roam'; save(); ui(); };
+$('play').onclick = () => {
+  const d = CARS[S.car];
+  if (S.own.includes(S.car)) return start();
+  if (S.d >= d.p) { S.d -= d.p; S.own.push(S.car); save(); ui(); }
+  else { $('play').textContent = 'NEED ' + d.p + ' \u25C6'; setTimeout(ui, 1200); }
+};
+$('exit').onclick = () => { save(); toGarage(); };
+msg.onclick = e => { if (e.target.id === 'again') start(); if (e.target.id === 'gar2') toGarage(); };
+
+// ---- update ----
+function update(dt) {
+  tt += dt; const d = CARS[S.car];
+  if (state === 'garage') { car.rotation.y += dt * 0.5; return; }
+  const play = state === 'play', hw = mode === 'hwy', nOn = play && boost && nitro > 0;
+  nitro = nOn ? Math.max(0, nitro - 28 * dt) : Math.min(100, nitro + (5 + d.ni * 0.1) * dt);
+  nb.style.width = nitro + '%';
+  if (play) { bs = hw ? Math.min(60 + d.sp * 0.3, bs + 0.8 * dt) : 38; speed += (bs + (nOn ? 28 : 0) - speed) * Math.min(1, dt * 2); }
+  else speed *= Math.max(0, 1 - 3 * dt);
+  let st = 0;
+  if (play) {
+    for (const v of holds.values()) st += v;
+    if (keys.has('arrowleft') || keys.has('a')) st--;
+    if (keys.has('arrowright') || keys.has('d')) st++;
+    st = clamp(st, -1, 1);
+  }
+  car.fl.forEach(f => { f.visible = nOn; f.scale.set(0.8 + Math.random() * 0.4, 0.8 + Math.random() * 0.4, 1 + Math.random() * 0.7); });
+  const sv = speed * dt;
+  if (hw) {
+    scr += sv;
+    for (const o of dashes) { o.position.z += sv; if (o.position.z > 20) o.position.z -= 240; }
+    for (const o of lamps) { o.position.z += sv; if (o.position.z > 20) o.position.z -= 240; }
+    for (const t of trees) { t.position.z += sv; if (t.position.z > 20) placeTree(t, t.position.z - 240); }
+    hwyPeds(dt, sv);
+    for (let i = traffic.length - 1; i >= 0; i--) {
+      const t = traffic[i], m = t.mesh;
+      m.position.z += (speed - 18) * dt;
+      if (t.sw > 0) {
+        t.sw -= dt; if (t.sw <= 0 && m.position.z < -40) { t.lane = clamp(t.lane + (Math.random() < 0.5 ? -1 : 1), 0, 2); t.sw = rnd(2, 5); }
+        const dx = LANES[t.lane] - m.position.x; m.position.x += dx * Math.min(1, dt * 3); m.rotation.y = -dx * 0.08;
+      }
+      if (m.position.z > 15 || m.position.z < -250) { scene.remove(m); traffic.splice(i, 1); }
+    }
+    if (play) {
+      vx += (st * (8 + d.st * 0.1) - vx) * Math.min(1, dt * 10); px += vx * dt;
+      if (Math.abs(px) > 5.1) { px = clamp(px, -5.1, 5.1); vx = 0; }
+      dist += sv; spawnT -= dt;
+      if (spawnT <= 0) { spawn(); spawnT = rnd(0.7, 1.4) * Math.max(0.45, 40 / speed); }
+      for (const t of traffic) if (Math.abs(t.mesh.position.x - px) < 1.6 && Math.abs(t.mesh.position.z) < 3.8) { crash(); break; }
+    }
+    car.position.set(px, 0, 0); car.rotation.y = -vx * 0.025;
+    ground.position.set(0, -0.02, -100); grd(0, -100, scr);
+    sc.textContent = Math.floor(dist) + ' m';
+  } else {
+    ang -= st * (1.1 + d.st * 0.012) * dt * clamp(speed / 22, 0.35, 1.2);
+    cx -= Math.sin(ang) * sv; cz -= Math.cos(ang) * sv; dist += sv;
+    for (const k of blocks) {
+      const p = k.position; p.x = wr(p.x, cx); p.z = wr(p.z, cz);
+      for (const b of k.children) {
+        const bx = p.x + b.position.x, bz = p.z + b.position.z;
+        const qx = clamp(cx, bx - b.hw, bx + b.hw), qz = clamp(cz, bz - b.hd, bz + b.hd), dx = cx - qx, dz = cz - qz, q = dx * dx + dz * dz;
+        if (q < 2.6) { const l = Math.sqrt(q) || 1; cx = qx + dx / l * 1.6; cz = qz + dz / l * 1.6; speed *= Math.max(0, 1 - 6 * dt); }
+      }
+    }
+    gems.forEach((g, i) => {
+      const p = g.position; p.x = wr(p.x, cx); p.z = wr(p.z, cz); p.y = 1.1 + Math.sin(tt * 3 + i) * 0.3; g.rotation.y += dt * 2;
+      if (Math.hypot(p.x - cx, p.z - cz) < 3) { S.d++; earned++; save(); roadPos(p); }
+    });
+    cityActors(dt);
+    MT.position.set(cx, 0, cz);
+    car.position.set(cx, 0, cz); car.rotation.y = ang;
+    ground.position.set(cx, -0.02, cz); cityT.offset.set(cx / 40, -cz / 40);
+    sc.textContent = Math.floor(dist) + ' m  \u25C6 ' + earned;
+  }
+  spd.textContent = Math.round(speed * 3.6) + ' km/h';
+  const cp = car.position; sun.target.position.copy(cp); sun.position.set(cp.x - 12, 22, cp.z + 9);
+}
+
+function resize() { const w = app.clientWidth, h = app.clientHeight; R.setSize(w, h); cam.aspect = w / h; }
+addEventListener('resize', resize);
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min((now - last) / 1000, 0.05); last = now; update(dt);
+  const por = cam.aspect < 1;
+  if (state === 'garage') {
+    const k = por ? 1.55 : 1; cam.fov = 42; cam.position.set(5.6 * k, 2.3 * k, 6.8 * k); cam.lookAt(0, 0.8, 0);
+  } else {
+    const nOn = state === 'play' && boost && nitro > 0;
+    fv += ((por ? 72 : 58) + speed * 0.15 + (nOn ? 9 : 0) - fv) * Math.min(1, dt * 5); cam.fov = fv;
+    let lx, lz, ly = 1;
+    if (mode === 'hwy') { cam.position.set(px * 0.6, por ? 5.2 : 4.2, por ? 11 : 9); lx = px * 0.3; lz = -14; }
+    else {
+      ca += (ang - ca) * Math.min(1, dt * 4); const dd = por ? 11 : 9;
+      cam.position.set(cx + Math.sin(ca) * dd, por ? 5.2 : 4.2, cz + Math.cos(ca) * dd); lx = cx - Math.sin(ca) * 12; lz = cz - Math.cos(ca) * 12;
+    }
+    if (shake > 0) { shake -= dt; cam.position.x += rnd(-1, 1) * shake; cam.position.y += rnd(-1, 1) * shake; }
+    cam.lookAt(lx, ly, lz);
+  }
+  cam.updateProjectionMatrix();
+  streaks(dt); CL.position.set(cam.position.x, 0, cam.position.z); CL.rotation.y += dt * 0.004;
+  R.render(scene, cam); requestAnimationFrame(loop);
+}
+resize(); setCar(); toGarage(); requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
