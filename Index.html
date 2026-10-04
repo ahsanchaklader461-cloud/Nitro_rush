@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nitro Rush</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#e9edf5;--fg:#1b1f2a}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#12151d;--fg:#e8ecf5}}
+:root[data-theme="dark"]{--bg:#12151d;--fg:#e8ecf5}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+body{margin:0;height:100%;background:var(--bg);color:var(--fg);overflow:hidden;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-user-select:none;user-select:none}
+#app{position:relative;width:100%;height:100%;touch-action:none;overflow:hidden}
+#app canvas{display:block}
+#hud{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;padding:12px 16px;color:#fff;font-weight:700;font-size:20px;text-shadow:0 2px 6px rgba(0,0,0,.7);pointer-events:none}
+#msg{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#fff;background:rgba(0,0,0,.45);pointer-events:none;padding:0 24px;text-shadow:0 2px 6px rgba(0,0,0,.7)}
+#msg h1{margin:0 0 12px;font-size:clamp(32px,9vw,56px);color:#ffd23f}
+#msg p{margin:6px 0;font-size:18px}
+.go{color:#ffd23f;font-weight:700}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud"><span id="sc">0 m</span><span id="sp">0 km/h</span></div>
+  <div id="msg"></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+const msg = document.getElementById('msg');
+if (!window.THREE) {
+  msg.innerHTML = '<h1>Could not load 3D engine</h1><p>Check your connection and reload.</p>';
+  return;
+}
+const app = document.getElementById('app'), sc = document.getElementById('sc'), spd = document.getElementById('sp');
+const rnd = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
+
+// ---- scene ----
+const renderer = new THREE.WebGLRenderer({antialias: true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+app.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const SKY = 0x8ec9f0;
+scene.background = new THREE.Color(SKY);
+scene.fog = new THREE.Fog(SKY, 50, 170);
+const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 400);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x446644, 0.9));
+const sun = new THREE.DirectionalLight(0xffffff, 0.6);
+sun.position.set(-10, 20, 10);
+scene.add(sun);
+
+const mat = c => new THREE.MeshLambertMaterial({color: c});
+const flat = (w, h, color, z, y) => {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat(color));
+  m.rotation.x = -Math.PI / 2; m.position.set(0, y, z); scene.add(m);
+};
+flat(300, 300, 0x3b8f3b, -130, -0.02);   // grass
+flat(12, 300, 0x333840, -130, 0);        // road
+const white = new THREE.MeshBasicMaterial({color: 0xffffff});
+for (const x of [-5.9, 5.9]) {
+  const e = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.02, 300), white);
+  e.position.set(x, 0.01, -130); scene.add(e);
+}
+
+// lane dashes + trees (recycled as the world scrolls)
+const dashes = [], trees = [];
+const dashG = new THREE.BoxGeometry(0.15, 0.02, 3);
+for (const x of [-2, 2]) for (let i = 0; i < 30; i++) {
+  const d = new THREE.Mesh(dashG, white);
+  d.position.set(x, 0.012, 20 - i * 8); scene.add(d); dashes.push(d);
+}
+const trunkG = new THREE.CylinderGeometry(0.2, 0.3, 1.5, 6), leafG = new THREE.ConeGeometry(1.4, 3.5, 7);
+const trunkM = mat(0x6b4423), leafM = mat(0x1f6b2a);
+function placeTree(t, z) {
+  const s = rnd(0.8, 1.6), side = Math.random() < 0.5 ? -1 : 1;
+  t.position.set(side * rnd(8, 28), 0, z); t.scale.set(s, s, s);
+}
+for (let i = 0; i < 40; i++) {
+  const t = new THREE.Group();
+  const tr = new THREE.Mesh(trunkG, trunkM); tr.position.y = 0.75;
+  const lf = new THREE.Mesh(leafG, leafM); lf.position.y = 3.2;
+  t.add(tr, lf); placeTree(t, 20 - i * 6); scene.add(t); trees.push(t);
+}
+
+// ---- cars (face -z, tail toward camera) ----
+const bodyG = new THREE.BoxGeometry(1.8, 0.6, 4), cabG = new THREE.BoxGeometry(1.5, 0.5, 2);
+const wheelG = new THREE.CylinderGeometry(0.4, 0.4, 0.3, 12), lightG = new THREE.BoxGeometry(0.4, 0.2, 0.05);
+const glass = mat(0x1d2733), tire = mat(0x111111), tail = new THREE.MeshBasicMaterial({color: 0xff2222});
+function makeCar(color) {
+  const g = new THREE.Group(), bm = mat(color);
+  const body = new THREE.Mesh(bodyG, bm); body.position.y = 0.6; g.add(body);
+  const cab = new THREE.Mesh(cabG, glass); cab.position.set(0, 1.15, 0.2); g.add(cab);
+  for (const sx of [-1, 1]) for (const sz of [-1.3, 1.3]) {
+    const w = new THREE.Mesh(wheelG, tire);
+    w.rotation.z = Math.PI / 2; w.position.set(sx * 0.95, 0.4, sz); g.add(w);
+  }
+  for (const sx of [-0.6, 0.6]) {
+    const l = new THREE.Mesh(lightG, tail); l.position.set(sx, 0.7, 2.02); g.add(l);
+  }
+  return g;
+}
+const player = makeCar(0xe63946);
+scene.add(player);
+
+// ---- game state ----
+const LANES = [-4, 0, 4], TRAFFIC_SPEED = 18;
+const COLORS = [0x457b9d, 0xf4a261, 0x2a9d8f, 0xe9c46a, 0x9b5de5, 0xffffff, 0x6c757d];
+const traffic = [];
+let state = 'menu', speed = 25, dist = 0, best = 0, px = 0, vx = 0, shake = 0, spawnT = 0, overAt = 0;
+try { best = +localStorage.getItem('nr-best') || 0; } catch (e) {}
+
+function showMenu() {
+  msg.style.display = 'flex';
+  msg.innerHTML = '<h1>NITRO RUSH</h1><p>Hold the left or right side of the screen to steer</p><p>Dodge traffic. You get faster over time.</p><p class="go">Tap to start</p>' + (best ? '<p>Best ' + best + ' m</p>' : '');
+}
+function startGame() {
+  for (const t of traffic) scene.remove(t.mesh);
+  traffic.length = 0;
+  state = 'play'; speed = 30; dist = 0; px = 0; vx = 0; spawnT = 1; shake = 0;
+  player.position.x = 0; msg.style.display = 'none';
+}
+function crash() {
+  state = 'over'; shake = 0.5; overAt = performance.now();
+  const d = Math.floor(dist);
+  if (d > best) { best = d; try { localStorage.setItem('nr-best', best); } catch (e) {} }
+  msg.style.display = 'flex';
+  msg.innerHTML = '<h1>CRASH!</h1><p>' + d + ' m</p><p>Best ' + best + ' m</p><p class="go">Tap to race again</p>';
+}
+function spawnTraffic() {
+  const lane = Math.floor(Math.random() * 3);
+  if (traffic.some(t => t.lane === lane && t.mesh.position.z < -110)) return;
+  const m = makeCar(COLORS[Math.floor(Math.random() * COLORS.length)]);
+  m.position.set(LANES[lane], 0, -170);
+  scene.add(m); traffic.push({mesh: m, lane});
+}
+
+// ---- input ----
+const holds = new Map(), keys = new Set();
+const side = e => (e.clientX < window.innerWidth / 2 ? -1 : 1);
+app.addEventListener('pointerdown', e => {
+  if (state === 'menu' || (state === 'over' && performance.now() - overAt > 600)) startGame();
+  if (state !== 'play') return;
+  holds.set(e.pointerId, side(e));
+  app.setPointerCapture(e.pointerId);
+});
+app.addEventListener('pointermove', e => { if (holds.has(e.pointerId)) holds.set(e.pointerId, side(e)); });
+for (const t of ['pointerup', 'pointercancel']) app.addEventListener(t, e => holds.delete(e.pointerId));
+window.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (k.startsWith('arrow') || k === ' ') e.preventDefault();
+  if ((k === ' ' || k === 'enter') && (state === 'menu' || (state === 'over' && performance.now() - overAt > 600))) startGame();
+  keys.add(k);
+});
+window.addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+
+// ---- loop ----
+function resize() {
+  const w = app.clientWidth, h = app.clientHeight;
+  renderer.setSize(w, h); camera.aspect = w / h;
+}
+window.addEventListener('resize', resize);
+
+function update(dt) {
+  if (state === 'menu') speed = 25;
+  else if (state === 'play') speed = Math.min(85, speed + 0.8 * dt);
+  else speed *= Math.max(0, 1 - 3 * dt);
+
+  for (const d of dashes) { d.position.z += speed * dt; if (d.position.z > 20) d.position.z -= 240; }
+  for (const t of trees) { t.position.z += speed * dt; if (t.position.z > 20) { placeTree(t, t.position.z - 240); } }
+  for (let i = traffic.length - 1; i >= 0; i--) {
+    const t = traffic[i];
+    t.mesh.position.z += (speed - TRAFFIC_SPEED) * dt;
+    if (t.mesh.position.z > 15 || t.mesh.position.z < -250) { scene.remove(t.mesh); traffic.splice(i, 1); }
+  }
+
+  if (state === 'play') {
+    let steer = 0;
+    for (const v of holds.values()) steer += v;
+    if (keys.has('arrowleft') || keys.has('a')) steer -= 1;
+    if (keys.has('arrowright') || keys.has('d')) steer += 1;
+    steer = clamp(steer, -1, 1);
+    vx += (steer * 14 - vx) * Math.min(1, dt * 10);
+    px += vx * dt;
+    if (Math.abs(px) > 5.1) { px = clamp(px, -5.1, 5.1); vx = 0; }
+    dist += speed * dt;
+
+    spawnT -= dt;
+    if (spawnT <= 0) { spawnTraffic(); spawnT = rnd(0.7, 1.4) * Math.max(0.45, 40 / speed); }
+
+    for (const t of traffic) {
+      if (Math.abs(t.mesh.position.x - px) < 1.6 && Math.abs(t.mesh.position.z) < 3.6) { crash(); break; }
+    }
+  }
+  player.position.x = px;
+  player.rotation.y = -vx * 0.025;
+  sc.textContent = Math.floor(dist) + ' m';
+  spd.textContent = Math.round(speed * 3.6) + ' km/h';
+}
+
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min((now - last) / 1000, 0.05); last = now;
+  update(dt);
+  const portrait = camera.aspect < 1;
+  camera.fov = (portrait ? 72 : 58) + speed * 0.15;
+  camera.updateProjectionMatrix();
+  camera.position.set(px * 0.6, portrait ? 5.2 : 4.2, portrait ? 11 : 9);
+  if (shake > 0) {
+    shake -= dt;
+    camera.position.x += rnd(-1, 1) * shake; camera.position.y += rnd(-1, 1) * shake;
+  }
+  camera.lookAt(px * 0.3, 1, -14);
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+
+resize(); showMenu(); requestAnimationFrame(loop);
+})();
+</script>
+</body>
+  </html>
