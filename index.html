@@ -45,7 +45,7 @@ button{font:inherit;font-weight:800;color:#fff;border:0;cursor:pointer;text-shad
 <body>
 <div id="app">
   <div id="vig"></div>
-  <div style="position:absolute;left:6px;bottom:2px;font-size:10px;opacity:.5;pointer-events:none;z-index:5">v7</div>
+  <div style="position:absolute;left:6px;bottom:2px;font-size:10px;opacity:.5;pointer-events:none;z-index:5">v8</div>
   <div id="hud" class="ov" hidden>
     <div class="top"><span class="chip" id="sc">0 m</span><span style="flex:1"></span><span class="chip" id="sp">0 km/h</span></div>
     <button class="bl" id="exit">&lsaquo; GARAGE</button>
@@ -73,6 +73,7 @@ window.addEventListener('error', e => {
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>window.THREE || document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"><\/script>')</script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script>
 (() => {
 const $ = id => document.getElementById(id);
@@ -82,13 +83,16 @@ const rnd = (a, b) => a + Math.random() * (b - a), clamp = (v, a, b) => Math.min
 
 // ---- data / save ----
 const CARS = [
-  {n: 'RUSH', p: 0, sp: 55, br: 55, st: 60, ni: 50, rim: 0xd0d0d0, len: 4, wing: 0},
-  {n: 'VIPER', p: 600, sp: 78, br: 62, st: 72, ni: 68, rim: 0xff2a2a, len: 4.2, wing: 1},
-  {n: 'PHANTOM', p: 1500, sp: 95, br: 78, st: 86, ni: 90, rim: 0x222222, len: 4.4, wing: 1}];
+  {n: 'RACER', file: 'race', p: 0, sp: 60, br: 55, st: 62, ni: 55, rim: 0xd0d0d0, len: 4, wing: 0},
+  {n: 'FUTURE', file: 'race-future', p: 600, sp: 78, br: 62, st: 72, ni: 70, rim: 0xff2a2a, len: 4.2, wing: 1},
+  {n: 'SPORT SEDAN', file: 'sedan-sports', p: 1000, sp: 85, br: 70, st: 76, ni: 78, rim: 0x222222, len: 4.2, wing: 0},
+  {n: 'HOT HATCH', file: 'hatchback-sports', p: 1500, sp: 95, br: 78, st: 86, ni: 90, rim: 0x222222, len: 4.4, wing: 1}];
 const PAINT = [0xe63946, 0x1e90ff, 0xffc300, 0x2ecc71, 0x9b5de5, 0xffffff, 0x20242b, 0xff7a00];
 const COL = [0x457b9d, 0xf4a261, 0x2a9d8f, 0xe9c46a, 0x9b5de5, 0xffffff, 0x6c757d];
 let S = {d: 300, s: 0, best: 0, own: [0], car: 0, col: [0, 1, 2], mode: 'hwy'};
 try { Object.assign(S, JSON.parse(localStorage.getItem('nr2') || '{}')); } catch (e) {}
+while (S.col.length < CARS.length) S.col.push(S.col.length);
+if (!CARS[S.car]) S.car = 0;
 const save = () => { try { localStorage.setItem('nr2', JSON.stringify(S)); } catch (e) {} };
 
 // ---- renderer / scene ----
@@ -175,7 +179,7 @@ function extr(pts, depth, bev) {
   const g = new THREE.ExtrudeGeometry(s, {depth, bevelEnabled: true, bevelThickness: bev, bevelSize: bev, bevelSegments: 3, steps: 1});
   g.rotateY(Math.PI / 2); g.translate(-depth / 2, 0, 0); return g;
 }
-function makeCar(idx, col, glow) {
+function makeProcCar(idx, col, glow) {
   const d = CARS[idx], h = d.len / 2, W = 1.5, g = new THREE.Group(), b = new THREE.Group(); g.add(b);
   const geo = GC[idx] || (GC[idx] = {
     body: extr([[-h, 0.35], [h, 0.35], [h, 0.62], [h * 0.55, 0.82], [-h * 0.1, 0.9], [-h, 0.78]], W, 0.14),
@@ -206,6 +210,37 @@ function makeCar(idx, col, glow) {
   b.traverse(m => { if (m.isMesh) m.castShadow = true; });
   g.fl = [-0.5, 0.5].map(sx => { const f = new THREE.Mesh(FG, flameM); f.position.set(sx, 0.55, h + 0.2); f.visible = false; g.add(f); return f; });
   return g;
+}
+// ---- Kenney Car Kit models (.glb files next to index.html); falls back to the built-in cars ----
+const FLIP = true; // if the cars drive backwards, change this to false
+const FILES = ['race', 'race-future', 'sedan-sports', 'hatchback-sports', 'taxi', 'sedan', 'suv', 'van', 'truck', 'ambulance'];
+const TRAF = ['taxi', 'sedan', 'suv', 'van', 'truck', 'ambulance'], MODELS = {};
+const pickT = () => { const a = TRAF.filter(n => MODELS[n]); return a.length ? a[Math.floor(Math.random() * a.length)] : 'none'; };
+function makeCar(idx, col, glow, tName) {
+  const tpl = MODELS[tName || CARS[idx].file];
+  if (!tpl) return makeProcCar(idx, col, glow);
+  const g = new THREE.Group(), b = new THREE.Group(), h = 2.1; g.add(b);
+  const m = tpl.clone(true); b.add(m);
+  if (!tName) m.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); if (/paint|body/i.test(o.material.name)) o.material.color.setHex(col); } });
+  g.refl = b.clone(); g.refl.scale.y = -1; g.refl.visible = false; g.add(g.refl);
+  b.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  const ct = new THREE.Mesh(ctG, ctM); ct.position.y = 0.03; g.add(ct);
+  if (glow) { const u = new THREE.Mesh(ugG, ugM); u.position.y = 0.05; g.add(u); }
+  g.fl = [-0.5, 0.5].map(sx => { const f = new THREE.Mesh(FG, flameM); f.position.set(sx, 0.55, h + 0.2); f.visible = false; g.add(f); return f; });
+  return g;
+}
+if (THREE.GLTFLoader) {
+  const ld = new THREE.GLTFLoader();
+  FILES.forEach(n => ld.load(n + '.glb', gl => {
+    const sc = gl.scene, sz = new THREE.Box3().setFromObject(sc).getSize(new THREE.Vector3());
+    sc.scale.setScalar(4.2 / Math.max(sz.x, sz.z));
+    const bx = new THREE.Box3().setFromObject(sc), c = bx.getCenter(new THREE.Vector3());
+    sc.position.set(-c.x, -bx.min.y, -c.z);
+    sc.traverse(o => { if (o.isMesh && o.material) { o.material.envMap = envTex; o.material.envMapIntensity = 0.5; } });
+    const w = new THREE.Group(); w.add(sc); if (FLIP) w.rotation.y = Math.PI;
+    MODELS[n] = w;
+    if (state === 'garage' && car && n === CARS[S.car].file) setCar();
+  }, undefined, () => {}));
 }
 let car;
 function setCar() {
@@ -331,7 +366,7 @@ function walkAnim(g) {
 const hPeds = [], cPeds = [], aiCars = [];
 for (let i = 0; i < 8; i++) { const m = mkPed(); m.position.set(i % 2 ? 10 : -10, 0, 15 - i * 28); m.vz = rnd(-1.6, 1.6); m.rotation.y = m.vz > 0 ? Math.PI : 0; H.add(m); hPeds.push(m); }
 for (let i = 0; i < 20; i++) { const p = {m: mkPed(), hit: 0}; M.add(p.m); cPeds.push(p); }
-for (let i = 0; i < 8; i++) { const m = makeCar(Math.random() < 0.3 ? 1 : 0, COL[Math.floor(Math.random() * COL.length)]); M.add(m); aiCars.push({m}); }
+for (let i = 0; i < 8; i++) { const m = makeCar(0, COL[Math.floor(Math.random() * COL.length)], false, pickT()); M.add(m); aiCars.push({m}); }
 function hwyPeds(dt, sv) {
   for (const m of hPeds) {
     m.position.z += sv + m.vz * dt; walkAnim(m);
@@ -346,6 +381,7 @@ function placePed(p) {
 }
 function placeAI(c) {
   const v = Math.random() < 0.5, dir = Math.random() < 0.5 ? -1 : 1;
+  M.remove(c.m); c.m = makeCar(0, COL[Math.floor(Math.random() * COL.length)], false, pickT()); M.add(c.m);
   c.v = v; c.dir = dir; c.sp = rnd(9, 15);
   c.f = 40 * Math.round((v ? cx : cz) / 40 + rnd(-2.5, 2.5)) + (v ? -dir : dir) * 3; c.a = (v ? cz : cx) + rnd(-110, 110);
   c.m.rotation.y = v ? (dir < 0 ? 0 : Math.PI) : (dir < 0 ? Math.PI / 2 : -Math.PI / 2);
@@ -440,7 +476,7 @@ function crash() {
 function spawn() {
   const lane = Math.floor(Math.random() * 3);
   if (traffic.some(t => t.lane === lane && t.mesh.position.z < -110)) return;
-  const m = makeCar(Math.random() < 0.3 ? 1 : 0, COL[Math.floor(Math.random() * COL.length)]);
+  const m = makeCar(0, COL[Math.floor(Math.random() * COL.length)], false, pickT());
   m.position.set(LANES[lane], 0, -170); scene.add(m); traffic.push({mesh: m, lane, sw: Math.random() < 0.3 ? rnd(2, 5) : 0});
 }
 
