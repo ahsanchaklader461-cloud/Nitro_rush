@@ -49,7 +49,7 @@ button{font:inherit;font-weight:800;color:#fff;border:0;cursor:pointer;text-shad
 <body>
 <div id="app">
   <div id="vig"></div>
-  <div style="position:absolute;left:6px;bottom:2px;font-size:10px;opacity:.5;pointer-events:none;z-index:5" id="ver">v12</div>
+  <div style="position:absolute;left:6px;bottom:2px;font-size:10px;opacity:.5;pointer-events:none;z-index:5" id="ver">v13</div>
   <div id="hud" class="ov" hidden>
     <div class="top"><span class="chip" id="sc">0 m</span><span style="flex:1"></span><span class="chip" id="sp">0 km/h</span></div>
     <button class="bl" id="exit">&lsaquo; GARAGE</button>
@@ -426,10 +426,10 @@ let rt = 0, finN = 0;
 scene.add(K); K.visible = false;
 const roadT = noiseTex('#8d9097', '#a8abb2', 300); roadT.repeat.set(4, 125);
 const skyRailM = P(0x30343c, 0.6, 0.4), deckM = new THREE.MeshLambertMaterial({map: roadT});
-const GAPS = [450, 900, 1350, 1850, 2400, 2950].map(v => ({s: v, len: 36})), secs = [], pads = [];
+const GAPS = [[450, 60], [900, 75], [1350, 90], [1850, 105], [2400, 125], [2950, 140]].map(a => ({s: a[0], len: a[1]})), secs = [], pads = [];
 let py = 0, vy = 0, air = false, wasRamp = false, padT = 0, skyS = 0;
-const gapAt = s => GAPS.find(g => s > g.s && s < g.s + g.len), rampAt = s => GAPS.find(g => s > g.s - 12 && s <= g.s);
-function rivalY(s) { const g = rampAt(s); if (g) return (s - (g.s - 12)) / 12 * 3; const h = gapAt(s); if (h) { const t = (s - h.s) / h.len; return 18 * t * (1 - t); } return 0; }
+const gapAt = s => GAPS.find(g => s > g.s && s < g.s + g.len), rampAt = s => GAPS.find(g => s > g.s - 20 && s <= g.s);
+function rivalY(s) { const g = rampAt(s); if (g) return (s - (g.s - 20)) / 20 * 6; const h = gapAt(s); if (h) { const t = (s - h.s) / h.len; return h.len * 0.5 * t * (1 - t); } return 0; }
 const bnd = [-60]; GAPS.forEach(g => bnd.push(g.s, g.s + g.len)); bnd.push(3900);
 for (let i = 0; i < bnd.length; i += 2) {
   const A = bnd[i], B = bnd[i + 1], g = new THREE.Group(), dk = new THREE.Mesh(new THREE.BoxGeometry(17, 1, B - A), deckM);
@@ -437,8 +437,8 @@ for (let i = 0; i < bnd.length; i += 2) {
   for (const x of [-8.2, 8.2]) for (const y of [0.6, 1.1]) { const r = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, B - A), skyRailM); r.position.set(x, y, 0); g.add(r); }
   g.userData = {mid: (A + B) / 2}; K.add(g); secs.push(g);
 }
-const rampG = new THREE.BoxGeometry(16, 0.4, 12.5), rampM = new THREE.MeshLambertMaterial({color: 0xff7a00});
-GAPS.forEach(g => { g.ramp = new THREE.Mesh(rampG, rampM); g.ramp.rotation.x = 0.245; g.ramp.castShadow = true; K.add(g.ramp); });
+const rampG = new THREE.BoxGeometry(16, 0.6, 20.9), rampM = new THREE.MeshLambertMaterial({color: 0xff7a00});
+GAPS.forEach(g => { g.ramp = new THREE.Mesh(rampG, rampM); g.ramp.rotation.x = 0.291; g.ramp.castShadow = true; K.add(g.ramp); });
 const padTex = canvasTex(64, 128, x => {
   x.fillStyle = 'rgba(20,200,255,.35)'; x.fillRect(0, 0, 64, 128); x.strokeStyle = '#7ff'; x.lineWidth = 10;
   for (let k = 0; k < 3; k++) { x.beginPath(); x.moveTo(8, 48 + k * 30); x.lineTo(32, 22 + k * 30); x.lineTo(56, 48 + k * 30); x.stroke(); }
@@ -491,13 +491,13 @@ function skyStep(dt, sv, play, st, d) {
   }
   const gp = gapAt(dist), rp = rampAt(dist);
   if (!air) {
-    if (rp) { py = (dist - (rp.s - 12)) / 12 * 3; wasRamp = true; }
-    else { if (wasRamp) { air = true; vy = speed * 0.25; wasRamp = false; } else py = 0; if (gp && !air) air = true; }
+    if (rp) { py = (dist - (rp.s - 20)) / 20 * 6; wasRamp = true; }
+    else { if (wasRamp) { air = true; vy = speed * 0.3; wasRamp = false; } else py = 0; if (gp && !air) air = true; }
   }
   if (air) {
     vy -= 30 * dt; py += vy * dt;
     if (py <= 0 && !gp) { if (vy < -12) shake = 0.2; py = 0; vy = 0; air = false; }
-    if (py < -30) { const g0 = GAPS.filter(g => g.s < dist).pop(); dist = g0.s - 25; speed = 28; py = 0; vy = 0; air = false; wasRamp = false; shake = 0.5; }
+    if (py < -30) { const g0 = GAPS.filter(g => g.s < dist).pop(); dist = g0.s - 45; speed = 28; py = 0; vy = 0; air = false; wasRamp = false; shake = 0.5; }
   }
   padT = Math.max(0, padT - dt);
   rt += dt; let place = 1;
@@ -512,13 +512,13 @@ function skyStep(dt, sv, play, st, d) {
     if (play && Math.abs(r.x - px) < 1.9 && Math.abs(z) < 4.2) { speed *= Math.max(0, 1 - 5 * dt); px += (px >= r.x ? 1 : -1) * 3 * dt; r.d -= 6 * dt; }
   }
   for (const g of secs) g.position.z = dist - g.userData.mid;
-  for (const g of GAPS) g.ramp.position.set(0, 1.5, dist - (g.s - 6));
+  for (const g of GAPS) g.ramp.position.set(0, 3, dist - (g.s - 10));
   for (const p of pads) {
     const z = dist - p.s; p.m.position.z = z; p.m.visible = z > -260 && z < 20;
     if (play && !air && !p.used && Math.abs(p.x - px) < 2.4 && Math.abs(z) < 3.5) { p.used = true; padT = 1.5; shake = Math.max(shake, 0.1); }
   }
   FL.position.z = dist - SKYLEN;
-  car.position.set(px, py, 0); car.rotation.y = -vx * 0.025; car.rotation.x = air ? clamp(vy / Math.max(speed, 20), -0.6, 0.6) : rp ? 0.245 : 0;
+  car.position.set(px, py, 0); car.rotation.y = -vx * 0.025; car.rotation.x = air ? clamp(vy / Math.max(speed, 20), -0.6, 0.6) : rp ? 0.291 : 0;
   $('pp').style.left = clamp(dist / SKYLEN, 0, 1) * 100 + '%';
   sc.textContent = 'P' + place + '/' + (rivals.length + 1);
   if (play && dist >= SKYLEN) finishRace(finN + 1);
@@ -548,7 +548,7 @@ function scatter() {
 // ---- state ----
 const LANES = [-4, 0, 4], traffic = [];
 let state = 'garage', mode = 'hwy', speed = 0, bs = 30, dist = 0, scr = 0, px = 0, vx = 0, shake = 0, spawnT = 0, over = 0;
-let nitro = 100, boost = false, cx = 0, cz = 0, ang = 0, ca = 0, tt = 0, earned = 0, fv = 60;
+let nitro = 100, nCool = 0, boost = false, cx = 0, cz = 0, ang = 0, ca = 0, tt = 0, earned = 0, fv = 60;
 
 function ui() {
   const d = CARS[S.car], own = S.own.includes(S.car);
@@ -625,7 +625,9 @@ function update(dt) {
   tt += dt; const d = CARS[S.car];
   if (state === 'garage') { car.rotation.y += dt * 0.5; return; }
   const play = state === 'play', hw = mode !== 'roam', nOn = play && boost && nitro > 0;
-  nitro = nOn ? Math.max(0, nitro - 28 * dt) : Math.min(100, nitro + (5 + d.ni * 0.1) * dt);
+  if (nOn) { nitro = Math.max(0, nitro - 28 * dt); if (nitro <= 0) nCool = 1; }
+  else if (nitro <= 0 && nCool > 0) nCool -= dt;
+  else nitro = Math.min(100, nitro + (5 + d.ni * 0.1) * dt);
   nb.style.width = nitro + '%';
   if (play) { bs = hw ? Math.min(60 + d.sp * 0.3, bs + 0.8 * dt) : 38; speed += (bs + (nOn ? 28 : 0) + padT * 16 - speed) * Math.min(1, dt * 2); }
   else speed *= Math.max(0, 1 - 3 * dt);
