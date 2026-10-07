@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; font-src data:; connect-src data: blob: https://0.peerjs.com wss://0.peerjs.com; worker-src blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; font-src data:; connect-src data: blob: https://0.peerjs.com wss://0.peerjs.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Nitro Rush</title>
 <style>
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -68,7 +68,7 @@ button{font:inherit;font-weight:800;color:#fff;border:0;cursor:pointer;text-shad
 <body>
 <div id="app">
   <div id="vig"></div>
-  <div style="position:absolute;left:6px;bottom:2px;font-size:10px;opacity:.5;pointer-events:none;z-index:5" id="ver">v29</div>
+  <div style="position:absolute;left:6px;bottom:2px;font-size:10px;opacity:.5;pointer-events:none;z-index:5" id="ver">v30</div>
   <div id="hud" class="ov" hidden>
     <div class="top"><span class="chip" id="sc">0 m</span><span style="flex:1"></span><span class="chip" id="sp">0 km/h</span></div>
     <button class="bl" id="exit">&lsaquo; GARAGE</button>
@@ -1076,7 +1076,7 @@ function mpTick(dt) {
   } else if (MP.hc && MP.hc.open) { try { MP.hc.send(Object.assign({t: 's'}, me)); } catch (e) {} }
 }
 function mpFin() { MP.fin = true; MP.tick = 0; mpTick(1); }
-$('m4').onclick = () => { if (!S.own.includes(S.car)) { toast('Buy this car first'); return; } S.mode = 'sky'; ui(); mpMenu(); };
+$('m4').onclick = () => { if (!navigator.onLine) { toast('Online race needs internet'); return; } if (!S.own.includes(S.car)) { toast('Buy this car first'); return; } S.mode = 'sky'; ui(); mpMenu(); };
 mpEl.onclick = e => {
   const id = e.target.id;
   if (id === 'mpHost') mpCreate();
@@ -1219,6 +1219,15 @@ resize(); setCar(); toGarage(); gar.hidden = true;
 if (tampered) setTimeout(() => toast(tampered), 1200);
 $('tp').onclick = () => { $('title').hidden = true; gar.hidden = false; audioInit(); };
 requestAnimationFrame(loop);
+})();
+</script>
+<script>
+// ---- offline play: after one online visit, the game and 3D engine are saved on the phone ----
+(() => {
+  const say = t => { const e = document.getElementById('toast'); if (!e) return; e.textContent = t; e.style.opacity = 1; setTimeout(() => { e.style.opacity = 0; }, 3200); };
+  if (!('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
+  navigator.serviceWorker.addEventListener('message', e => { if (e.data === 'offline-ready') say('OFFLINE READY \u2713'); });
+  addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
 })();
 </script>
 </body>
