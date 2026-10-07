@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; font-src data:; connect-src data: blob: https://0.peerjs.com wss://0.peerjs.com; worker-src blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Nitro Rush</title>
 <style>
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -30,7 +31,7 @@ button{font:inherit;font-weight:800;color:#fff;border:0;cursor:pointer;text-shad
 #sw button{width:28px;height:28px;border-radius:50%;border:2px solid #fff5;padding:0}
 #sw button.on{border-color:#fff;transform:scale(1.25)}
 .md{display:flex;flex-direction:column;gap:6px}
-.md button{padding:8px 14px;border-radius:5px;background:#14161caa;font-size:13px}
+.md button{padding:7px 12px;border-radius:5px;background:#14161caa;font-size:13px}
 .md button.on{background:linear-gradient(#2f80e8,#1757b0)}
 #play{padding:14px 34px;font-size:22px;font-style:italic;border-radius:4px}
 #prog{position:absolute;left:28px;right:28px;top:104px;height:6px;background:#0008;border-radius:3px}
@@ -58,12 +59,16 @@ button{font:inherit;font-weight:800;color:#fff;border:0;cursor:pointer;text-shad
 .up button,.ms button{padding:7px 12px;margin:0;border-radius:5px;font-size:12px}.ms{margin:10px 0;text-align:left;font-size:14px}.ms small{display:block;opacity:.7}
 .pbar{height:6px;background:#fff3;border-radius:3px;overflow:hidden;margin-top:4px}.pbar i{display:block;height:100%;background:#ffd23f}
 .box button[disabled]{opacity:.4}#pnl .box{max-height:80%;overflow:auto;width:min(340px,88vw)}
+#mp{pointer-events:auto;background:#000a;z-index:80}#mp .box{width:min(340px,88vw);box-sizing:border-box}
+#mp input{width:96px;padding:10px;margin:8px 6px 0;font:inherit;font-weight:900;font-size:22px;letter-spacing:6px;text-align:center;text-transform:uppercase;border-radius:5px;border:2px solid #fff5;background:#0b0d12;color:#fff;-webkit-user-select:text;user-select:text}
+#mpcd{position:absolute;left:0;right:0;top:28%;text-align:center;font-size:clamp(60px,22vw,120px);font-weight:900;font-style:italic;color:#ffd23f;text-shadow:0 4px 18px #000;pointer-events:none;z-index:65}
+#set:not([hidden]){display:flex}
 </style>
 </head>
 <body>
 <div id="app">
   <div id="vig"></div>
-  <div style="position:absolute;left:6px;bottom:2px;font-size:10px;opacity:.5;pointer-events:none;z-index:5" id="ver">v23</div>
+  <div style="position:absolute;left:6px;bottom:2px;font-size:10px;opacity:.5;pointer-events:none;z-index:5" id="ver">v29</div>
   <div id="hud" class="ov" hidden>
     <div class="top"><span class="chip" id="sc">0 m</span><span style="flex:1"></span><span class="chip" id="sp">0 km/h</span></div>
     <button class="bl" id="exit">&lsaquo; GARAGE</button>
@@ -79,15 +84,18 @@ button{font:inherit;font-weight:800;color:#fff;border:0;cursor:pointer;text-shad
     <div class="pn" id="bars"></div>
     <div class="pn" style="position:absolute;left:10px;top:104px;display:flex;flex-direction:column;gap:6px"><button class="bl" id="bu" style="padding:9px 12px;border-radius:5px;font-size:13px">UPGRADES</button><button class="or" id="bm" style="padding:9px 12px;border-radius:5px;font-size:13px">MISSIONS</button></div>
     <div class="bot">
-      <div id="sw" class="pn"></div>
-      <div class="md"><button id="m1">HIGHWAY</button><button id="m2">CITY ROAM</button><button id="m3">SKY RACE</button><button id="mn" style="font-size:11px;padding:6px 14px">NIGHT: OFF</button><button id="sn" style="font-size:11px;padding:6px 14px">SOUND: ON</button></div>
-      <button class="or" id="play">PLAY</button>
+      <div class="md"><button id="m1">HIGHWAY</button><button id="m2">CITY ROAM</button><button id="m3">SKY RACE</button><button id="m4">ONLINE RACE</button></div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px"><div id="sw" class="pn" style="justify-content:flex-end"></div><button class="or" id="play">PLAY</button></div>
     </div>
+    <button class="bl pn" id="gs" style="position:absolute;left:10px;top:54px;padding:8px 12px;border-radius:5px;font-size:13px">&#9881; SETTINGS</button>
+    <div class="pn" id="set" hidden style="position:absolute;left:10px;top:94px;z-index:20;flex-direction:column;gap:6px;background:#0b0d12ee;padding:10px;border-radius:8px"><button id="sn" style="font-size:12px;padding:8px 14px">SOUND: ON</button><button id="mu" style="font-size:12px;padding:8px 14px">MUSIC: ON</button><button id="mn" style="font-size:12px;padding:8px 14px">NIGHT: OFF</button></div>
   </div>
   <div id="title" class="ov"><h1>NITRO RUSH</h1><p>RACE &middot; ROAM &middot; ESCAPE</p><button class="or" id="tp">PLAY &#9654;</button></div>
   <div id="toast"></div>
   <div id="pnl" class="ov" hidden style="pointer-events:auto;background:#000a;z-index:70"></div>
+  <div id="mpcd" hidden></div>
   <div id="msg" class="ov"><div class="box"><h1>LOADING&hellip;</h1><p>Downloading the 3D engine</p></div></div>
+  <div id="mp" class="ov" hidden></div>
 </div>
 <script>
 window.addEventListener('error', e => {
@@ -115,10 +123,41 @@ const CARS = [
 const PAINT = [0xe63946, 0x1e90ff, 0xffc300, 0x2ecc71, 0x9b5de5, 0xffffff, 0x20242b, 0xff7a00];
 const COL = [0x457b9d, 0xf4a261, 0x2a9d8f, 0xe9c46a, 0x9b5de5, 0xffffff, 0x6c757d];
 let S = {d: 300, s: 0, best: 0, own: [0], car: 0, col: [0, 1, 2], mode: 'hwy'};
-try { Object.assign(S, JSON.parse(localStorage.getItem('nr2') || '{}')); } catch (e) {}
-while (S.col.length < CARS.length) S.col.push(S.col.length);
-if (!CARS[S.car]) S.car = 0;
-const save = () => { try { localStorage.setItem('nr2', JSON.stringify(S)); } catch (e) {} };
+// ---- SAVE FIREWALL: signed saves, backup copy, and value checks ----
+const SALT = 'nitro-rush::7f3a91c2::';
+const sign = str => { let a = 0x811c9dc5, b = 0x1b873593; const t = SALT + str + SALT.length; for (let i = 0; i < t.length; i++) { const c = t.charCodeAt(i); a = Math.imul(a ^ c, 16777619); b = Math.imul(b + c, 2246822519) ^ (b >>> 13); } return (a >>> 0).toString(36) + (b >>> 0).toString(36); };
+function readSave(k) { // returns {data} if fine, null if missing, false if edited or broken
+  try {
+    const raw = localStorage.getItem(k); if (!raw) return null;
+    const sig = localStorage.getItem(k + 's');
+    if (sig === null) return localStorage.getItem('nr2v') ? false : {data: JSON.parse(raw)}; // unsigned only allowed for old saves
+    return sig === sign(raw) ? {data: JSON.parse(raw)} : false;
+  } catch (e) { return false; }
+}
+function sanitize() {
+  const num = (v, a, b, f) => Number.isFinite(v) ? Math.min(b, Math.max(a, Math.floor(v))) : f;
+  S.d = num(S.d, 0, 9999999, 300); S.s = num(S.s, 0, 99999, 0); S.best = num(S.best, 0, 9999999, 0);
+  S.own = Array.isArray(S.own) ? S.own.filter((v, i, a) => Number.isInteger(v) && v >= 0 && v < CARS.length && a.indexOf(v) === i) : [0];
+  if (!S.own.includes(0)) S.own.unshift(0);
+  if (!Array.isArray(S.col)) S.col = [0, 1, 2];
+  S.col = S.col.map(v => num(v, 0, PAINT.length - 1, 0)); while (S.col.length < CARS.length) S.col.push(S.col.length % PAINT.length);
+  if (!Number.isInteger(S.car) || !CARS[S.car]) S.car = 0;
+  if (!['hwy', 'roam', 'sky'].includes(S.mode)) S.mode = 'hwy';
+  if (S.up && typeof S.up === 'object') for (const i of Object.keys(S.up)) { const o = S.up[i]; if (!o || typeof o !== 'object' || !CARS[i]) { delete S.up[i]; continue; } for (const k of Object.keys(o)) o[k] = num(o[k], 0, 5, 0); }
+}
+let tampered = '', loaded = readSave('nr2');
+if (loaded === false) { tampered = 'Save was edited - restored your last good save'; loaded = readSave('nr2b'); if (!loaded) tampered = 'Save was damaged - progress reset'; }
+if (loaded && loaded.data && typeof loaded.data === 'object' && !Array.isArray(loaded.data)) Object.assign(S, loaded.data);
+sanitize();
+const save = () => {
+  try {
+    sanitize();
+    const prev = localStorage.getItem('nr2'), ps = localStorage.getItem('nr2s');
+    if (prev && ps === sign(prev)) { localStorage.setItem('nr2b', prev); localStorage.setItem('nr2bs', ps); }
+    const raw = JSON.stringify(S); localStorage.setItem('nr2', raw); localStorage.setItem('nr2s', sign(raw)); localStorage.setItem('nr2v', '1');
+  } catch (e) {}
+};
+save();
 
 // ---- renderer / scene ----
 const R = new THREE.WebGLRenderer({antialias: true});
@@ -538,6 +577,7 @@ function initSky() {
   BEND.uD.value = 0; BEND.uX0.value = bxf(0); BEND.uSl.value = bxd(0);
   for (const r of rivals) { K.remove(r.m); r.dot.remove(); }
   rivals.length = 0;
+  if (MP.race) { mpRivals(); return; }
   const nm = ['sedan-sports', 'hatchback-sports', 'race-future', 'sedan', 'sportscar'], xs = [-6, -3, 3, 6, 0], ds = [0, 0, 0, 0, 8];
   xs.forEach((x, i) => {
     const m = makeCar(0, PAINT[Math.floor(Math.random() * PAINT.length)], false, nm[Math.floor(Math.random() * nm.length)]), dot = document.createElement('u');
@@ -545,10 +585,11 @@ function initSky() {
   });
 }
 function finishRace(pos) {
+  if (MP.race) mpFin();
   if (pos === 1) sfx('win'); else sfx('crash'); state = 'over'; boost = false;
   const rw = [200, 120, 80, 50, 30, 20][pos - 1] || 10, cbn = Math.floor(cScore / 3); S.d += rw + cbn; if (pos === 1) S.s++; mEvent('race', pos); save();
   msg.hidden = false;
-  msg.innerHTML = '<div class="box"><h1>' + ORD[pos - 1] + ' PLACE</h1><p>' + (pos === 1 ? 'You won the race!' : 'Race finished') + '</p><p>+' + rw + ' \u25C6' + (pos === 1 ? ' &nbsp; +1 \u2605' : '') + '</p>' + (cbn ? '<p>Drift + combo bonus +' + cbn + ' \u25C6</p>' : '') + '<button class="or" id="again">RACE AGAIN</button><button class="bl" id="gar2">GARAGE</button></div>';
+  msg.innerHTML = '<div class="box"><h1>' + ORD[pos - 1] + ' PLACE</h1><p>' + (pos === 1 ? 'You won the race!' : 'Race finished') + '</p><p>+' + rw + ' \u25C6' + (pos === 1 ? ' &nbsp; +1 \u2605' : '') + '</p>' + (cbn ? '<p>Drift + combo bonus +' + cbn + ' \u25C6</p>' : '') + (MP.race ? '<button class="or" id="mplobby">LOBBY</button>' : '<button class="or" id="again">RACE AGAIN</button>') + '<button class="bl" id="gar2">GARAGE</button></div>';
 }
 function skyStep(dt, sv, play, st, d) {
   if (speed > 125) speed = 125;
@@ -579,6 +620,8 @@ function skyStep(dt, sv, play, st, d) {
   padT = Math.max(0, padT - dt);
   rt += dt; let place = 1;
   for (const r of rivals) {
+    if (r.gone) { r.m.visible = false; r.dot.style.display = 'none'; continue; }
+    if (r.net) mpRival(r, dt); else {
     const nr = GAPS.find(g => g.s - 20 > r.d && g.s - 20 - r.d < 110);
     if (r.nc > 0) r.nc -= dt;
     if (!r.on && r.nc <= 0 && r.nit > 25 && (nr || (r.d < dist - 25 && Math.random() < dt * 0.5))) r.on = true;
@@ -589,6 +632,7 @@ function skyStep(dt, sv, play, st, d) {
     r.m.fl.forEach(f => { f.visible = r.on; f.scale.set(0.8 + Math.random() * 0.4, 0.8 + Math.random() * 0.4, 1 + Math.random() * 0.7); });
     r.tt -= dt; if (r.tt <= 0) { r.tx = [-6, -2, 2, 6][Math.floor(Math.random() * 4)]; r.tt = rnd(2, 4); }
     r.x += (r.tx - r.x) * Math.min(1, dt * 1.5);
+    }
     const z = dist - r.d, ax = Math.abs(r.x - px);
     if (play && ax >= 1.9 && ax < 3.4 && Math.abs(z) < 4.5 && !r.nm) { r.nm = true; combo = Math.min(5, combo + 1); comboT = 4; cScore += 15 * combo; sfx('pad'); }
     else if (Math.abs(z) > 10) r.nm = false;
@@ -607,8 +651,9 @@ function skyStep(dt, sv, play, st, d) {
   FL.position.z = dist - SKYLEN;
   car.position.set(px, py, 0); car.rotation.y = -vx * 0.025; car.rotation.x = air ? clamp(vy / Math.max(speed, 20), -0.6, 0.6) : rp ? 0.291 : 0;
   $('pp').style.left = clamp(dist / SKYLEN, 0, 1) * 100 + '%';
-  sc.textContent = 'P' + place + '/' + (rivals.length + 1);
+  sc.textContent = 'P' + place + '/' + (rivals.filter(q => !q.gone).length + 1);
   const cb = $('cmb'); cb.hidden = false; cb.textContent = (drifting ? 'DRIFT! ' : '') + 'x' + combo + '  \u2605 ' + Math.floor(cScore);
+  if (MP.race) mpTick(dt);
   if (play && dist >= SKYLEN) finishRace(finN + 1);
 }
 
@@ -704,6 +749,7 @@ function ui() {
   const pb = $('play'); pb.textContent = own ? 'PLAY' : 'BUY ' + d.p + ' \u25C6'; pb.className = own ? 'or' : 'bl';
   $('m1').className = S.mode === 'hwy' ? 'on' : ''; $('m2').className = S.mode === 'roam' ? 'on' : ''; $('m3').className = S.mode === 'sky' ? 'on' : '';
   $('mn').className = S.night ? 'on' : ''; $('mn').textContent = S.night ? 'NIGHT: ON' : 'NIGHT: OFF';
+  $('mu').className = S.nomus ? '' : 'on'; $('mu').textContent = S.nomus ? 'MUSIC: OFF' : 'MUSIC: ON';
   $('sn').className = S.mute ? '' : 'on'; $('sn').textContent = S.mute ? 'SOUND: OFF' : 'SOUND: ON';
 }
 // ---- toast, city coins, easter egg ----
@@ -713,6 +759,22 @@ function eggCheck(i) {
   if (S.car !== 0) { eggSeq = []; return; }
   eggSeq.push(i); if (eggSeq.length > 7) eggSeq.shift();
   if (eggSeq.join() === '0,1,0,1,6,0,3') { eggSeq = []; if (!S.egg) { S.egg = 1; S.d += 10000; save(); toast('SECRET UNLOCKED! +10000 \u25C6'); sfx('win'); } else toast('Secret already claimed!'); }
+}
+// ---- building collision: pushes a point (o.x, o.z) out of every building; also rescues it if it ended up inside one ----
+function bldPush(o, r) {
+  let hit = false;
+  for (const k of blocks) for (const b of k.children) {
+    const bx = k.position.x + b.position.x, bz = k.position.z + b.position.z;
+    const qx = clamp(o.x, bx - b.hw, bx + b.hw), qz = clamp(o.z, bz - b.hd, bz + b.hd), dx = o.x - qx, dz = o.z - qz, q = dx * dx + dz * dz;
+    if (q >= r * r) continue;
+    if (q > 1e-6) { const l = Math.sqrt(q); o.x = qx + dx / l * r; o.z = qz + dz / l * r; }
+    else {
+      const l = o.x - (bx - b.hw), rt_ = bx + b.hw - o.x, f = o.z - (bz - b.hd), bk = bz + b.hd - o.z, m = Math.min(l, rt_, f, bk);
+      if (m === l) o.x = bx - b.hw - r; else if (m === rt_) o.x = bx + b.hw + r; else if (m === f) o.z = bz - b.hd - r; else o.z = bz + b.hd + r;
+    }
+    hit = true;
+  }
+  return hit;
 }
 // ---- POLICE CHASE (City Roam) ----
 const cops = []; let bust = 0, heat = 1, chaseT = 0, copCd = 0, sirenT = 0, sirenF = false;
@@ -744,10 +806,7 @@ function copStep(dt) {
     c.h += clamp(wrapA(Math.atan2(-dx, -dz) - c.h), -2 * dt, 2 * dt);
     c.sp += ((36 + heat * 2.5 + (d > 45 ? 14 : 0)) - c.sp) * Math.min(1, dt * 1.5);
     c.x -= Math.sin(c.h) * c.sp * dt; c.z -= Math.cos(c.h) * c.sp * dt;
-    for (const k of blocks) for (const b of k.children) {
-      const bx = k.position.x + b.position.x, bz = k.position.z + b.position.z, qx = clamp(c.x, bx - b.hw, bx + b.hw), qz = clamp(c.z, bz - b.hd, bz + b.hd), ex = c.x - qx, ez = c.z - qz, q = ex * ex + ez * ez;
-      if (q < 6) { const l = Math.sqrt(q) || 1; c.x = qx + ex / l * 2.5; c.z = qz + ez / l * 2.5; c.sp *= Math.max(0, 1 - 4 * dt); }
-    }
+    if (bldPush(c, 2.5)) c.sp *= Math.max(0, 1 - 4 * dt);
     for (let j = 0; j < i; j++) { const o = cops[j], ox = c.x - o.x, oz = c.z - o.z, od = Math.hypot(ox, oz); if (od < 4.5) { const l = od || 1; c.x += ox / l * 4.5 - ox; c.z += oz / l * 4.5 - oz; } }
     c.m.position.set(c.x, 0, c.z); c.m.rotation.y = c.h; c.rb.visible = fl; c.bb.visible = !fl;
     if (d < 3.6) {
@@ -824,13 +883,14 @@ function audioUpdate(dt, playing, nOn) {
   eng.frequency.setTargetAtTime(48 + speed * 2.2 + (nOn ? 28 : 0), t, 0.08); lpf.frequency.setTargetAtTime(260 + speed * 9 + (nOn ? 500 : 0), t, 0.1);
   nzG.gain.setTargetAtTime(!playing ? 0 : nOn ? 0.18 : clamp((speed - 45) * 0.0016, 0, 0.1), t, 0.1);
   if (nOn && !wasN) sfx('nitro'); wasN = nOn;
-  if (!playing) return;
+  if (!playing || S.nomus) return;
   musT -= dt; if (musT > 0) return; musT = 0.15; const i = musI++ % 32, ch = ARP[Math.floor(i / 8)];
   if (i % 2 === 0) tone(BASS[Math.floor((i % 16) / 2)] * (i >= 16 ? 1 : 1), 0.28, 'triangle', 0.16);
   tone(ch[i % 3] * (i % 8 > 5 ? 2 : 1), 0.13, 'square', 0.035);
   if (i % 4 === 0) tone(110, 0.14, 'sine', 0.3, 38);
 }
 function toGarage() {
+  if (MP.peer) mpClose();
   state = 'garage'; applyNight(false); hud.hidden = true; msg.hidden = true; gar.hidden = false;
   G.visible = true; H.visible = M.visible = K.visible = ground.visible = false;
   scene.background = DARK; scene.fog.color.copy(DARK);
@@ -866,6 +926,166 @@ function spawn() {
   m.position.set(LANES[lane], 0, -170); scene.add(m); traffic.push({mesh: m, lane, sw: Math.random() < 0.3 ? rnd(2, 5) : 0});
 }
 
+
+// ---- ONLINE SKY RACE: 2-6 players over WebRTC (PeerJS). Every phone drives its own car; the host relays everyone's position. ----
+const MPX = [-6, -3.6, -1.2, 1.2, 3.6, 6], MPCH = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', MPPRE = 'nitrorush-sky-';
+const MP = {on: false, host: false, race: false, fin: false, peer: null, hc: null, conns: new Map(), list: [], slot: 0, st: [], code: '', tick: 0, iv: 0};
+const mpEl = $('mp'), mpCd = $('mpcd'), hex6 = c => '#' + c.toString(16).padStart(6, '0');
+const mpMine = () => ({f: CARS[S.car].file, c: PAINT[S.col[S.car]]});
+const mpOk = p => !!p && typeof p.f === 'string' && CARS.some(c => c.file === p.f) && PAINT.includes(p.c);
+const mpNum = (v, a, b) => Number.isFinite(v) ? Math.min(b, Math.max(a, v)) : a;
+let peerLoad = null;
+function mpLoad() {
+  if (window.Peer) return Promise.resolve();
+  peerLoad = peerLoad || new Promise((ok, no) => {
+    const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
+    s.onload = ok; s.onerror = () => { peerLoad = null; no(new Error('load')); }; document.head.appendChild(s);
+  });
+  return peerLoad;
+}
+const mpVis = () => MP.list.filter(p => !p.g);
+function mpMenu(note) {
+  mpEl.hidden = false;
+  mpEl.innerHTML = '<div class="box"><h1>ONLINE SKY RACE</h1><p>Race friends over the internet (2-6 players)</p>' + (note ? '<p style="color:#ff6b6b">' + note + '</p>' : '') +
+    '<button class="or" id="mpHost">CREATE ROOM</button><p style="margin:14px 0 0">or join a friend\'s room</p><input id="mpIn" maxlength="4" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="CODE"><button class="bl" id="mpJoin">JOIN</button><br><button class="bl" id="mpBack">BACK</button></div>';
+}
+function mpBusy(t) { mpEl.hidden = false; mpEl.innerHTML = '<div class="box"><h1>ONLINE</h1><p>' + t + '</p><button class="bl" id="mpLeave">CANCEL</button></div>'; }
+function mpLobby(status) {
+  mpEl.hidden = false;
+  const v = mpVis(), rows = v.map((p, i) => '<div class="up"><b style="color:' + hex6(p.c) + '">&#9679; PLAYER ' + (i + 1) + (p.id === MP.list[0].id ? ' (HOST)' : '') + (MP.peer && p.id === MP.peer.id ? ' - YOU' : '') + '</b><i style="letter-spacing:0;color:#fff;font-size:12px">' + CARS.find(c => c.file === p.f).n + '</i></div>').join('');
+  mpEl.innerHTML = '<div class="box"><h1>ROOM ' + MP.code + '</h1><p>Friends join with this code</p>' + rows + '<p>' + status + '</p>' +
+    (MP.host ? '<button class="or" id="mpGo"' + (v.length < 2 ? ' disabled' : '') + '>START RACE</button>' : '') + '<button class="bl" id="mpLeave">LEAVE</button></div>';
+}
+function mpClose() {
+  clearInterval(MP.iv); mpCd.hidden = true;
+  const p = MP.peer; MP.on = MP.race = MP.host = MP.fin = false; MP.peer = MP.hc = null; MP.list = []; MP.st = []; MP.conns = new Map();
+  try { if (p) p.destroy(); } catch (e) {}
+  mpEl.hidden = true;
+}
+const mpBcast = m => { for (const c of MP.conns.values()) if (c.open) { try { c.send(m); } catch (e) {} } };
+const mpRoster = () => mpBcast({t: 'R', l: MP.list.map(p => ({id: p.id, f: p.f, c: p.c, g: p.g ? 1 : 0}))});
+
+async function mpCreate() {
+  mpBusy('Connecting...');
+  try { await mpLoad(); } catch (e) { return mpMenu('Could not load online play. Check your connection.'); }
+  mpClose(); mpBusy('Connecting...'); let tries = 0;
+  const open = () => {
+    const code = Array.from({length: 4}, () => MPCH[Math.floor(Math.random() * MPCH.length)]).join(''), peer = new Peer(MPPRE + code);
+    MP.peer = peer;
+    peer.on('open', () => { MP.on = true; MP.host = true; MP.code = code; MP.list = [Object.assign({id: peer.id}, mpMine())]; MP.slot = 0; mpLobby('Waiting for players...'); });
+    peer.on('error', err => {
+      if (MP.on) return;
+      if (err.type === 'unavailable-id' && tries++ < 5) { try { peer.destroy(); } catch (e) {} open(); } else { mpClose(); mpMenu('Could not create a room. Try again.'); }
+    });
+    peer.on('connection', mpHostConn);
+  };
+  open();
+}
+function mpHostConn(c) {
+  c.on('data', m => {
+    if (!m || typeof m !== 'object') return;
+    const i = MP.list.findIndex(p => p.id === c.peer);
+    if (m.t === 'hi') {
+      if (i >= 0) return;
+      if (MP.race || mpVis().length >= 6 || !mpOk(m)) { try { c.send({t: 'no', m: MP.race ? 'race' : 'full'}); } catch (e) {} setTimeout(() => { try { c.close(); } catch (e) {} }, 500); return; }
+      MP.conns.set(c.peer, c); MP.list.push({id: c.peer, f: m.f, c: m.c}); mpRoster();
+      if (!mpEl.hidden) mpLobby('Waiting for players...');
+    } else if (m.t === 's' && i >= 0 && MP.race) {
+      const s = {d: mpNum(+m.d, 0, SKYLEN + 50), x: mpNum(+m.x, -8, 8), n: m.n ? 1 : 0, f: m.f ? 1 : 0};
+      MP.st[i] = s; mpNet(i, s.d, s.x, s.n, s.f);
+    }
+  });
+  c.on('close', () => {
+    const i = MP.list.findIndex(p => p.id === c.peer); MP.conns.delete(c.peer);
+    if (i < 0 || !MP.on) return;
+    MP.list[i].g = true; mpRoster(); const r = rivals.find(q => q.slot === i); if (r && MP.race) r.gone = true;
+    if (!mpEl.hidden) mpLobby('Waiting for players...');
+  });
+}
+async function mpJoin(code) {
+  if (code.length < 4) return mpMenu('Type the 4-letter room code');
+  mpBusy('Connecting...');
+  try { await mpLoad(); } catch (e) { return mpMenu('Could not load online play. Check your connection.'); }
+  mpClose(); mpBusy('Connecting...');
+  const peer = new Peer(); MP.peer = peer;
+  peer.on('open', () => {
+    const c = peer.connect(MPPRE + code, {serialization: 'json', reliable: true}); MP.hc = c;
+    const to = setTimeout(() => { if (!MP.on) { mpClose(); mpMenu('Room not found'); } }, 12000);
+    c.on('open', () => { clearTimeout(to); MP.on = true; MP.host = false; MP.code = code; c.send(Object.assign({t: 'hi'}, mpMine())); mpBusy('Joined - waiting...'); });
+    c.on('data', mpGuestData);
+    c.on('close', () => { if (!MP.on) return; mpClose(); toast('The host left the room'); if (state !== 'garage') toGarage(); });
+  });
+  peer.on('error', e => { if (MP.on) return; const nf = e.type === 'peer-unavailable'; mpClose(); mpMenu(nf ? 'Room not found - check the code' : 'Connection failed. Try again.'); });
+}
+function mpGuestData(m) {
+  if (!m || typeof m !== 'object' || !MP.peer) return;
+  if (m.t === 'R' && Array.isArray(m.l)) {
+    MP.list = m.l.slice(0, 12).map(p => (p && typeof p.id === 'string' && mpOk(p)) ? {id: p.id, f: p.f, c: p.c, g: !!p.g} : {id: '?', f: 'sedan', c: PAINT[0], g: true});
+    MP.slot = MP.list.findIndex(p => p.id === MP.peer.id);
+    if (MP.race) for (const r of rivals) if (r.net && MP.list[r.slot] && MP.list[r.slot].g) r.gone = true;
+    if (!mpEl.hidden && !MP.race) mpLobby('Waiting for the host to start...');
+  } else if (m.t === 'go') mpGo();
+  else if (m.t === 'S' && Array.isArray(m.p) && MP.race) { for (const e of m.p) if (Array.isArray(e) && Number.isInteger(e[0]) && e[0] !== MP.slot) mpNet(e[0], +e[1], +e[2], e[3], e[4]); }
+  else if (m.t === 'no') { const full = m.m === 'full'; mpClose(); mpMenu(full ? 'Room is full' : 'That race already started'); }
+}
+function mpStart() {
+  if (!MP.host || mpVis().length < 2) return;
+  MP.list = mpVis(); mpRoster(); mpBcast({t: 'go'}); mpGo();
+}
+function mpGo() {
+  if (!MP.on || !MP.peer) return;
+  MP.slot = MP.list.findIndex(p => p.id === MP.peer.id); if (MP.slot < 0) return;
+  S.mode = 'sky'; MP.race = true; MP.fin = false; MP.st = []; MP.tick = 0; mpEl.hidden = true; clearInterval(MP.iv);
+  start(); px = MPX[MP.slot]; vx = 0; state = 'cd'; speed = 0;
+  let n = 3; mpCd.hidden = false; mpCd.textContent = n; tone(440, 0.12, 'square', 0.12);
+  MP.iv = setInterval(() => {
+    n--;
+    if (n > 0) { mpCd.textContent = n; tone(440, 0.12, 'square', 0.12); return; }
+    clearInterval(MP.iv); mpCd.textContent = 'GO!'; tone(880, 0.4, 'square', 0.14);
+    if (state === 'cd') { state = 'play'; speed = 30; }
+    setTimeout(() => { mpCd.hidden = true; }, 800);
+  }, 1000);
+}
+function mpRivals() {
+  MP.list.forEach((p, i) => {
+    if (i === MP.slot || p.g) return;
+    const m = makeCar(0, p.c, false, p.f), dot = document.createElement('u');
+    dot.style.background = hex6(p.c); $('prog').appendChild(dot); m.traverse(o => { o.castShadow = false; }); K.add(m);
+    rivals.push({m, dot, d: 0, x: MPX[i], tx: MPX[i], tt: 0, k: 1, nit: 0, nc: 0, on: false, bs: 0, net: true, slot: i, nd: 0, nx: MPX[i], nT: 0, sp: 0});
+  });
+}
+function mpNet(i, d, x, n, f) {
+  const r = rivals.find(q => q.slot === i); if (!r) return;
+  d = mpNum(d, 0, SKYLEN + 50); x = mpNum(x, -8, 8); const now = performance.now();
+  if (r.nT) { const q = (now - r.nT) / 1000; if (q > 0.01) r.sp += (clamp((d - r.nd) / q, 0, 160) - r.sp) * 0.5; }
+  r.nd = f ? SKYLEN : d; r.nx = x; r.tx = x; r.on = !!n; r.nT = now; if (f) r.sp = 0;
+}
+function mpRival(r, dt) {
+  const now = performance.now(), tg = r.nd + r.sp * Math.min(0.3, (now - r.nT) / 1000);
+  if (r.nd >= SKYLEN) r.d = SKYLEN; else if (Math.abs(tg - r.d) > 30) r.d = tg; else r.d += (tg - r.d) * Math.min(1, dt * 10);
+  r.x += (r.nx - r.x) * Math.min(1, dt * 10);
+  r.m.fl.forEach(f => { f.visible = r.on; f.scale.set(0.8 + Math.random() * 0.4, 0.8 + Math.random() * 0.4, 1 + Math.random() * 0.7); });
+}
+function mpTick(dt) {
+  MP.tick -= dt; if (MP.tick > 0) return; MP.tick = 0.066;
+  const me = {d: Math.round(dist * 10) / 10, x: Math.round(px * 100) / 100, n: boost && nitro > 0 && state === 'play' ? 1 : 0, f: MP.fin ? 1 : 0};
+  if (MP.host) {
+    MP.st[MP.slot] = me; const p = [];
+    MP.list.forEach((e, i) => { const s = MP.st[i]; if (s) p.push([i, s.d, s.x, s.n, s.f]); });
+    mpBcast({t: 'S', p});
+  } else if (MP.hc && MP.hc.open) { try { MP.hc.send(Object.assign({t: 's'}, me)); } catch (e) {} }
+}
+function mpFin() { MP.fin = true; MP.tick = 0; mpTick(1); }
+$('m4').onclick = () => { if (!S.own.includes(S.car)) { toast('Buy this car first'); return; } S.mode = 'sky'; ui(); mpMenu(); };
+mpEl.onclick = e => {
+  const id = e.target.id;
+  if (id === 'mpHost') mpCreate();
+  else if (id === 'mpJoin') mpJoin(($('mpIn').value || '').toUpperCase().replace(/[^A-Z0-9]/g, ''));
+  else if (id === 'mpBack') mpEl.hidden = true;
+  else if (id === 'mpGo') mpStart();
+  else if (id === 'mpLeave') { mpClose(); if (state !== 'garage') toGarage(); }
+};
+
 // ---- input / ui events ----
 const holds = new Map(), keys = new Set();
 app.addEventListener('pointerdown', e => {
@@ -884,6 +1104,8 @@ $('pv').onclick = () => go(-1); $('nx').onclick = () => go(1);
 $('sw').onclick = e => { const i = e.target.dataset.i; if (i != null) { S.col[S.car] = +i; save(); setCar(); ui(); eggCheck(+i); } };
 $('m1').onclick = () => { S.mode = 'hwy'; save(); ui(); }; $('m2').onclick = () => { S.mode = 'roam'; save(); ui(); }; $('m3').onclick = () => { S.mode = 'sky'; save(); ui(); };
 $('mn').onclick = () => { S.night = !S.night; save(); ui(); };
+$('gs').onclick = () => { $('set').hidden = !$('set').hidden; };
+$('mu').onclick = () => { S.nomus = !S.nomus; save(); ui(); };
 $('sn').onclick = () => { S.mute = !S.mute; save(); ui(); if (!S.mute) audioInit(); };
 $('play').onclick = () => {
   const d = CARS[S.car];
@@ -892,7 +1114,7 @@ $('play').onclick = () => {
   else { $('play').textContent = 'NEED ' + d.p + ' \u25C6'; setTimeout(ui, 1200); }
 };
 $('exit').onclick = () => { save(); toGarage(); };
-msg.onclick = e => { if (e.target.id === 'again') start(); if (e.target.id === 'gar2') toGarage(); };
+msg.onclick = e => { if (e.target.id === 'again') start(); if (e.target.id === 'gar2') toGarage(); if (e.target.id === 'mplobby') { msg.hidden = true; MP.race = false; mpLobby(MP.host ? 'Waiting for players...' : 'Waiting for the host to start...'); } };
 
 // ---- update ----
 function update(dt) {
@@ -944,15 +1166,14 @@ function update(dt) {
     sc.textContent = Math.floor(dist) + ' m';
   } else {
     ang -= st * (1.1 + d.st * 0.012) * dt * clamp(speed / 22, 0.35, 1.2);
-    cx -= Math.sin(ang) * sv; cz -= Math.cos(ang) * sv; dist += sv;
-    for (const k of blocks) {
-      const p = k.position; p.x = wr(p.x, cx); p.z = wr(p.z, cz);
-      for (const b of k.children) {
-        const bx = p.x + b.position.x, bz = p.z + b.position.z;
-        const qx = clamp(cx, bx - b.hw, bx + b.hw), qz = clamp(cz, bz - b.hd, bz + b.hd), dx = cx - qx, dz = cz - qz, q = dx * dx + dz * dz;
-        if (q < 2.6) { const l = Math.sqrt(q) || 1; cx = qx + dx / l * 1.6; cz = qz + dz / l * 1.6; speed *= Math.max(0, 1 - (7 - d.br * 0.04) * dt); }
-      }
+    dist += sv;
+    for (const k of blocks) { const p = k.position; p.x = wr(p.x, cx); p.z = wr(p.z, cz); }
+    const sub = Math.max(1, Math.ceil(sv / 0.6)), s1 = sv / sub, pp = {x: cx, z: cz};
+    for (let n_ = 0; n_ < sub; n_++) {
+      pp.x -= Math.sin(ang) * s1; pp.z -= Math.cos(ang) * s1;
+      if (bldPush(pp, 1.6)) speed *= Math.max(0, 1 - (7 - d.br * 0.04) * dt / sub);
     }
+    cx = pp.x; cz = pp.z;
     gems.forEach((g, i) => {
       const p = g.position; p.x = wr(p.x, cx); p.z = wr(p.z, cz); p.y = 1.1 + Math.sin(tt * 3 + i) * 0.3; g.rotation.y += dt * 2;
       if (Math.hypot(p.x - cx, p.z - cz) < 3) { S.d++; earned++; save(); roadPos(p); }
@@ -995,6 +1216,7 @@ function loop(now) {
   R.render(scene, cam); requestAnimationFrame(loop);
 }
 resize(); setCar(); toGarage(); gar.hidden = true;
+if (tampered) setTimeout(() => toast(tampered), 1200);
 $('tp').onclick = () => { $('title').hidden = true; gar.hidden = false; audioInit(); };
 requestAnimationFrame(loop);
 })();
