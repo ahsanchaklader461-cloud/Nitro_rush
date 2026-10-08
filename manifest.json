@@ -1,0 +1,18 @@
+{
+  "id": "/Nitro_rush/",
+  "name": "Nitro Rush",
+  "short_name": "Nitro Rush",
+  "description": "3D racing game with highway, city and sky races. Works offline.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#12151d",
+  "theme_color": "#12151d",
+  "categories": ["games"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

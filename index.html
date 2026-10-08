@@ -3,8 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; font-src data:; connect-src data: blob: https://0.peerjs.com wss://0.peerjs.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'unsafe-inline'; img-src 'self' data: blob:; manifest-src 'self'; media-src data: blob:; font-src data:; connect-src data: blob: https://0.peerjs.com wss://0.peerjs.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Nitro Rush</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#12151d">
+<link rel="icon" type="image/png" href="icon-192.png">
 <style>
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 html{height:100%}
@@ -68,7 +71,7 @@ button{font:inherit;font-weight:800;color:#fff;border:0;cursor:pointer;text-shad
 <body>
 <div id="app">
   <div id="vig"></div>
-  <div style="position:absolute;left:6px;bottom:2px;font-size:10px;opacity:.5;pointer-events:none;z-index:5" id="ver">v30</div>
+  <div style="position:absolute;left:6px;bottom:2px;font-size:10px;opacity:.5;pointer-events:none;z-index:5" id="ver">v31</div>
   <div id="hud" class="ov" hidden>
     <div class="top"><span class="chip" id="sc">0 m</span><span style="flex:1"></span><span class="chip" id="sp">0 km/h</span></div>
     <button class="bl" id="exit">&lsaquo; GARAGE</button>
